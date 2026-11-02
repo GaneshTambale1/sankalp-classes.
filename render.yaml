@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: sankalp-api
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: sh -c "flask db upgrade && python manage.py seed-settings && exec gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 90 run:app"
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.5
+      - key: APP_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: FRONTEND_ORIGIN
+        sync: false
+      - key: PUBLIC_FRONTEND_URL
+        sync: false

@@ -1,0 +1,1 @@
+Single baseline Alembic migration; subsequent changes use `flask db migrate -m "description"`.

@@ -1,0 +1,18 @@
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sankalp_classes
+      POSTGRES_USER: sankalp
+      POSTGRES_PASSWORD: sankalp
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U sankalp -d sankalp_classes']
+      interval: 5s
+      retries: 10
+volumes:
+  pgdata:
