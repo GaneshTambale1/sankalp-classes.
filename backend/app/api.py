@@ -12,7 +12,7 @@ from functools import wraps
 from zoneinfo import ZoneInfo
 from flask import Blueprint, jsonify, request, Response, current_app, send_file
 from flask_jwt_extended import create_access_token, get_jwt, get_jwt_identity, jwt_required
-from sqlalchemy import func, or_, and_
+from sqlalchemy import func, or_, and_, literal_column
 from sqlalchemy.exc import IntegrityError
 from werkzeug.security import check_password_hash, generate_password_hash
 from reportlab.lib.pagesizes import A4
@@ -692,7 +692,22 @@ def dashboard(role):
             'students':Student.query.join(User).filter(Student.batch_id.in_(batch_ids),User.active.is_(True)).count()})
     students=Student.query.count();active=Student.query.join(User).filter(User.active.is_(True)).count()
     today=local_today();att=Attendance.query.filter_by(date=today)
-    monthly=db.session.query(func.date_trunc('month',Attendance.date),Attendance.status,func.count(Attendance.id)).group_by(func.date_trunc('month',Attendance.date),Attendance.status).order_by(func.date_trunc('month',Attendance.date)).limit(60).all() if db.engine.dialect.name=='postgresql' else []
+    # The month argument must be an SQL literal; independent bound parameters in
+    # SELECT/GROUP BY/ORDER BY make PostgreSQL reject the grouped expression.
+    month_expr = func.date_trunc(literal_column("'month'"), Attendance.date)
+    monthly = (
+        db.session.query(
+            month_expr,
+            Attendance.status,
+            func.count(Attendance.id)
+        )
+        .group_by(month_expr, Attendance.status)
+        .order_by(month_expr)
+        .limit(60)
+        .all()
+        if db.engine.dialect.name == 'postgresql'
+        else []
+    )
     trend=[{'month':str(m)[:7],'status':s,'count':c} for m,s,c in monthly]
     threshold=75
     setting=db.session.get(Setting,'attendance_warning_threshold')
@@ -775,7 +790,7 @@ def marks_csv():
 def openapi():
     return jsonify(openapi='3.0.3',info={'title':'SANKALP CLASSES API','version':'1.0.0'},servers=[{'url':'/api/v1'}],
         paths={re.sub(r'<(?:int:)?([^>]+)>',r'{\1}',path):{method.lower():{'summary':endpoint,'responses':{'200':{'description':'Successful response'}}} for method in methods if method not in ('HEAD','OPTIONS')} for path,methods,endpoint in
-          [(str(rule.rule).replace('/api/v1',''),rule.methods or set(),rule.endpoint) for rule in current_app.url_map.iter_rules() if rule.rule.startswith('/api/v1') and rule.rule!='/api/v1/openapi.json']})
+        [(str(rule.rule).replace('/api/v1',''),rule.methods or set(),rule.endpoint) for rule in current_app.url_map.iter_rules() if rule.rule.startswith('/api/v1') and rule.rule!='/api/v1/openapi.json']})
 
 @api.get('/results/available')
 @roles('student')
